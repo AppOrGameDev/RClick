@@ -152,6 +152,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         switch rcitem.id {
         case "copy-path":
             copyPath(target)
+        case "copy-to":
+            copyTo(target, trigger)
+        case "move-to":
+            moveTo(target, trigger)
         case "delete-direct":
             deleteFoldorFile(target, trigger)
         case "unhide":
@@ -326,6 +330,265 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             pasteboard.clearContents()
 
             pasteboard.setString(dirPath.removingPercentEncoding ?? dirPath, forType: .string)
+        }
+    }
+    
+    func copyTo(_ target: [String], _ trigger: String) {
+        logger.info("---- copyTo  trigger:\(trigger)")
+        
+        // 如果是容器，显示警告
+        if trigger == "ctx-container" {
+            let alert = NSAlert()
+            alert.messageText = "警告"
+            alert.informativeText = "无法复制当前文件夹，请选择文件或子文件夹进行复制。"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "确定")
+            alert.runModal()
+            return
+        }
+        
+        // 显示文件夹选择器
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.title = "选择复制目标位置"
+        panel.prompt = "选择"
+        
+        if panel.runModal() == .OK, let destinationURL = panel.url {
+            let fm = FileManager.default
+            
+            for item in target {
+                let decodedPath = item.removingPercentEncoding ?? item
+                logger.info("copyTo path \(decodedPath)")
+                
+                if Utils.isProtectedFolder(decodedPath) {
+                    let alert = NSAlert()
+                    alert.messageText = "警告"
+                    alert.informativeText = "无法复制系统保护文件夹：\(decodedPath)"
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "确定")
+                    alert.runModal()
+                    continue
+                }
+                
+                let sourceURL = URL(fileURLWithPath: decodedPath)
+                let destinationPath = destinationURL.appendingPathComponent(sourceURL.lastPathComponent)
+                
+                // 检查目标位置是否已存在同名文件
+                if fm.fileExists(atPath: destinationPath.path) {
+                    let alert = NSAlert()
+                    alert.messageText = "文件已存在"
+                    alert.informativeText = "目标位置已存在同名文件：\(destinationPath.lastPathComponent)\n是否覆盖？"
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "覆盖")
+                    alert.addButton(withTitle: "取消")
+                    
+                    if alert.runModal() == .alertSecondButtonReturn {
+                        continue // 取消复制
+                    }
+                    
+                    // 覆盖：删除已存在的文件
+                    do {
+                        try fm.removeItem(at: destinationPath)
+                    } catch {
+                        logger.error("删除已存在文件失败: \(error)")
+                        continue
+                    }
+                }
+                
+                // 执行复制操作
+                do {
+                    try fm.copyItem(at: sourceURL, to: destinationPath)
+                    logger.info("复制成功: \(sourceURL.path) -> \(destinationPath.path)")
+                } catch {
+                    logger.error("复制失败: \(error)")
+                    let alert = NSAlert()
+                    alert.messageText = "复制失败"
+                    alert.informativeText = "无法复制文件：\(sourceURL.lastPathComponent)\n错误信息：\(error.localizedDescription)"
+                    alert.alertStyle = .critical
+                    alert.addButton(withTitle: "确定")
+                    alert.runModal()
+                }
+            }
+        }
+    }
+    
+    func moveTo(_ target: [String], _ trigger: String) {
+        logger.info("---- moveTo  trigger:\(trigger)")
+        
+        // 如果是容器，显示警告
+        if trigger == "ctx-container" {
+            let alert = NSAlert()
+            alert.messageText = "警告"
+            alert.informativeText = "无法移动当前文件夹，请选择文件或子文件夹进行移动。"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "确定")
+            alert.runModal()
+            return
+        }
+        
+        // 显示文件夹选择器
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.title = "选择移动目标位置"
+        panel.prompt = "选择"
+        
+        if panel.runModal() == .OK, let destinationURL = panel.url {
+            let fm = FileManager.default
+            
+            for item in target {
+                let decodedPath = item.removingPercentEncoding ?? item
+                logger.info("moveTo path \(decodedPath)")
+                
+                if Utils.isProtectedFolder(decodedPath) {
+                    let alert = NSAlert()
+                    alert.messageText = "警告"
+                    alert.informativeText = "无法移动系统保护文件夹：\(decodedPath)"
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "确定")
+                    alert.runModal()
+                    continue
+                }
+                
+                let sourceURL = URL(fileURLWithPath: decodedPath)
+                
+                // 检查是否在同一文件系统内
+                do {
+                    let sourceResourceValues = try sourceURL.resourceValues(forKeys: [.volumeIdentifierKey])
+                    let destResourceValues = try destinationURL.resourceValues(forKeys: [.volumeIdentifierKey])
+                    
+                    if let sourceVolID = sourceResourceValues.volumeIdentifier,
+                       let destVolID = destResourceValues.volumeIdentifier,
+                       sourceVolID != destVolID {
+                        // 跨文件系统移动，使用复制+删除
+                        let destinationPath = destinationURL.appendingPathComponent(sourceURL.lastPathComponent)
+                        
+                        // 检查目标位置是否已存在同名文件
+                        if fm.fileExists(atPath: destinationPath.path) {
+                            let alert = NSAlert()
+                            alert.messageText = "文件已存在"
+                            alert.informativeText = "目标位置已存在同名文件：\(destinationPath.lastPathComponent)\n是否覆盖？"
+                            alert.alertStyle = .warning
+                            alert.addButton(withTitle: "覆盖")
+                            alert.addButton(withTitle: "取消")
+                            
+                            if alert.runModal() == .alertSecondButtonReturn {
+                                continue // 取消移动
+                            }
+                            
+                            // 覆盖：删除已存在的文件
+                            do {
+                                try fm.removeItem(at: destinationPath)
+                            } catch {
+                                logger.error("删除已存在文件失败: \(error)")
+                                continue
+                            }
+                        }
+                        
+                        // 复制文件
+                        do {
+                            try fm.copyItem(at: sourceURL, to: destinationPath)
+                            // 复制成功后删除原文件
+                            try fm.removeItem(at: sourceURL)
+                            logger.info("跨文件系统移动成功: \(sourceURL.path) -> \(destinationPath.path)")
+                        } catch {
+                            logger.error("跨文件系统移动失败: \(error)")
+                            let alert = NSAlert()
+                            alert.messageText = "移动失败"
+                            alert.informativeText = "无法移动文件：\(sourceURL.lastPathComponent)\n错误信息：\(error.localizedDescription)"
+                            alert.alertStyle = .critical
+                            alert.addButton(withTitle: "确定")
+                            alert.runModal()
+                        }
+                    } else {
+                        // 同文件系统内移动
+                        let destinationPath = destinationURL.appendingPathComponent(sourceURL.lastPathComponent)
+                        
+                        // 检查目标位置是否已存在同名文件
+                        if fm.fileExists(atPath: destinationPath.path) {
+                            let alert = NSAlert()
+                            alert.messageText = "文件已存在"
+                            alert.informativeText = "目标位置已存在同名文件：\(destinationPath.lastPathComponent)\n是否覆盖？"
+                            alert.alertStyle = .warning
+                            alert.addButton(withTitle: "覆盖")
+                            alert.addButton(withTitle: "取消")
+                            
+                            if alert.runModal() == .alertSecondButtonReturn {
+                                continue // 取消移动
+                            }
+                            
+                            // 覆盖：删除已存在的文件
+                            do {
+                                try fm.removeItem(at: destinationPath)
+                            } catch {
+                                logger.error("删除已存在文件失败: \(error)")
+                                continue
+                            }
+                        }
+                        
+                        // 执行移动操作
+                        do {
+                            try fm.moveItem(at: sourceURL, to: destinationPath)
+                            logger.info("移动成功: \(sourceURL.path) -> \(destinationPath.path)")
+                        } catch {
+                            logger.error("移动失败: \(error)")
+                            let alert = NSAlert()
+                            alert.messageText = "移动失败"
+                            alert.informativeText = "无法移动文件：\(sourceURL.lastPathComponent)\n错误信息：\(error.localizedDescription)"
+                            alert.alertStyle = .critical
+                            alert.addButton(withTitle: "确定")
+                            alert.runModal()
+                        }
+                    }
+                } catch {
+                    logger.error("获取文件系统信息失败: \(error)")
+                    // 如果无法获取文件系统信息，使用复制+删除方式
+                    let destinationPath = destinationURL.appendingPathComponent(sourceURL.lastPathComponent)
+                    
+                    // 检查目标位置是否已存在同名文件
+                    if fm.fileExists(atPath: destinationPath.path) {
+                        let alert = NSAlert()
+                        alert.messageText = "文件已存在"
+                        alert.informativeText = "目标位置已存在同名文件：\(destinationPath.lastPathComponent)\n是否覆盖？"
+                        alert.alertStyle = .warning
+                        alert.addButton(withTitle: "覆盖")
+                        alert.addButton(withTitle: "取消")
+                        
+                        if alert.runModal() == .alertSecondButtonReturn {
+                            continue // 取消移动
+                        }
+                        
+                        // 覆盖：删除已存在的文件
+                        do {
+                            try fm.removeItem(at: destinationPath)
+                        } catch {
+                            logger.error("删除已存在文件失败: \(error)")
+                            continue
+                        }
+                    }
+                    
+                    // 复制文件
+                    do {
+                        try fm.copyItem(at: sourceURL, to: destinationPath)
+                        // 复制成功后删除原文件
+                        try fm.removeItem(at: sourceURL)
+                        logger.info("移动成功（复制+删除）: \(sourceURL.path) -> \(destinationPath.path)")
+                    } catch {
+                        logger.error("移动失败: \(error)")
+                        let alert = NSAlert()
+                        alert.messageText = "移动失败"
+                        alert.informativeText = "无法移动文件：\(sourceURL.lastPathComponent)\n错误信息：\(error.localizedDescription)"
+                        alert.alertStyle = .critical
+                        alert.addButton(withTitle: "确定")
+                        alert.runModal()
+                    }
+                }
+            }
         }
     }
 

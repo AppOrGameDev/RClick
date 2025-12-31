@@ -165,12 +165,14 @@ struct RCAction: RCBase {
 extension RCAction {
 
     static let copyPath = RCAction(id: "copy-path", name: "Copy Path", idx: 0, icon: "doc.on.doc")
-    static let deleteDirect = RCAction(id: "delete-direct", name: "Delete Direct", idx: 1, icon: "trash")
-    static let hideFileDir = RCAction(id: "hide", name: "Hide", idx: 2, icon: "eye.slash")
-    static let unhideFileDir = RCAction(id: "unhide", name: "Unhide", idx: 3, icon: "eye")
-    static let airdrop = RCAction(id: "airdrop", name: "AirDrop", idx: 4, icon: "paperplane")
+    static let copyTo = RCAction(id: "copy-to", name: "Copy To", idx: 1, icon: "doc.on.doc.fill")
+    static let moveTo = RCAction(id: "move-to", name: "Move To", idx: 2, icon: "folder.badge.plus")
+    static let deleteDirect = RCAction(id: "delete-direct", name: "Delete Direct", idx: 3, icon: "trash")
+    static let hideFileDir = RCAction(id: "hide", name: "Hide", idx: 4, icon: "eye.slash")
+    static let unhideFileDir = RCAction(id: "unhide", name: "Unhide", idx: 5, icon: "eye")
+    static let airdrop = RCAction(id: "airdrop", name: "AirDrop", idx: 6, icon: "paperplane")
     
-    static var all: [RCAction] = [.copyPath, .deleteDirect,.airdrop, .hideFileDir, .unhideFileDir]
+    static var all: [RCAction] = [.copyPath, .copyTo, .moveTo, .deleteDirect,.airdrop, .hideFileDir, .unhideFileDir]
 }
 
 // New File Type
