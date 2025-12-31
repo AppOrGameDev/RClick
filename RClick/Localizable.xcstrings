@@ -192,6 +192,40 @@
         }
       }
     },
+    "Copy To" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy To"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制到"
+          }
+        }
+      }
+    },
+    "Move To" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move To"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动到"
+          }
+        }
+      }
+    },
     "Default Open App" : {
       "localizations" : {
         "zh-Hans" : {
